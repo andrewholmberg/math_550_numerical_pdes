@@ -32,7 +32,11 @@ dLap = decomposition(Lap, 'lu');
 
 % Concatenation of vector for u and f
 u = [reshape(cos(2*X) .* sin(2*Y), [], 1); zeros(length(xib), 1)];
-f = [reshape(-8 * sin(2*Y) .* cos(2*X), [], 1); cos(2 * xib) .* sin(2 * yib)];
+p1 = -8 * sin(2.*Y) .* cos(2.*X);
+p1 = p1(:);
+p2 = cos(2 * xib) .* sin(2 * yib);
+p2 = p2(:);
+f = [p1; p2];
 
 
 
@@ -50,7 +54,8 @@ disp(flag);
 
 
 % gmres_helper function
-function output = gmres_helper(v, X, Y, xib, yib, delta, Lap)
+function output = gmres_helper(v,X,Y,xib,yib,delta,Lap)
+
     Sib = spreadQ(X, Y, xib, yib, delta);
     lq = length(xib);
     q = v(end-lq+1:end);
@@ -70,7 +75,7 @@ function Sib = spreadQ(X, Y, xq, yq, delta)
     Sib = zeros(Nq, numel(X));
     for k = 1:Nq
         Rk = sqrt((X - xq(k)).^2 + (Y - yq(k)).^2);
-        Sib(k, :) = delta(Rk,:);  % Reshape into a column
+        Sib(k) = delta(Rk)(:);  % Reshape into a column
     end
     Sib = Sib.';  % Transpose the result
 end
