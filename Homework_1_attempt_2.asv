@@ -109,20 +109,19 @@ view(45, 30); % Adjust azimuth and elevation for a better view
 
 % gmres_helper function
 function output = gmres_helper(v,X,Y,xib,yib,delta,Lap)
-    lq = length(xib)
     q = v(end-lq+1:end);
     u = v(1:end-lq);
-    Q = spreadQ(X, Y, xib, yib, q, delta);
-    1
-    N = length(X)
-    Phi = reshape(Lap\Q(:),N,N);
-    Phi_ib = interpPhi(X,Y,xib,yib,Phi,delta);
-    [Phi_ib]
+    Sib = spreadQ(X, Y, xib, yib, q, delta);
+    Phi = reshape(dLap\q(:),N,N);
+    Phi_ib = interpPhi(Xint,Yint,xib,yib,Phi,delta);
+    lq = length(xib);
 
     dx = X(1, 2) - X(1, 1);
     dy = Y(2, 1) - Y(1, 1);
     %J = dx * dy * ones(lq, numel(X));
-    output = v;
+    J = interpPhi(X,Y,xib,yib,delta);
+    shape(J)
+    output = [Lap * u - Sib * q; J * u];
 end
 
 
