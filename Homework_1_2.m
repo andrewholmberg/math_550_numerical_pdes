@@ -2,7 +2,7 @@
 clear all;
 
 N = 100;
-m = 10;
+m = 6;
 theta = linspace(0, 2*pi, m);
 theta(end) = [];  % Exclude the last element
 xib = pi * cos(theta);  % Gaussian x-coordinate points
@@ -42,27 +42,6 @@ p2 = cos(2 * xib) .* sin(2 * yib);
 p2 = p2(:);
 f = [p1; p2];
 % Initialize the right-hand side (RHS) vector f (source term)
-
-
-%{
-% Modify the Laplacian matrix and f for Dirichlet boundary conditions
-% Flatten the u grid into a vector
-u_vec = reshape(u, [], 1); 
-
-% Apply Dirichlet boundary conditions
-% Boundary indices for the vectorized matrix
-boundary_indices = [1:N, N*(1:N), N*(N-1)+1:N*N, 1:N:N*N];  % Top, bottom, left, right
-
-% Set the rows corresponding to boundary points in Laplacian to 0
-Lap(boundary_indices, :) = 0;
-
-% Set diagonal elements to 1 for boundary conditions
-Lap(sub2ind(size(Lap), boundary_indices, boundary_indices)) = 1;
-
-% Modify the RHS f to account for the boundary conditions
-temp = yvals(boundary_indices)
-f(boundary_indices) = sin(2.*yvals(boundary_indices)).*cos(2.*xvals(boundary_indices));
-%}
 
 [A, f] = solve_linear_poisson(N);
 size(A)
@@ -135,13 +114,12 @@ function output = gmres_helper(v,X,Y,xib,yib,delta,Lap)
     lq = length(xib);
     q = v(end-lq+1:end);
     u = v(1:end-lq);
-
     dx = X(1, 2) - X(1, 1);
     dy = Y(2, 1) - Y(1, 1);
-    J = dx * dy * ones(lq, numel(X));
-    tempJ = J * u.*0;
-    output = [Lap * u - Sib * q; tempJ];
-    %output = [Lap * u;tempJ];
+    %J = dx * dy * ones(lq, numel(X));
+    J = interpPhi(X,Y,xib,yib,delta);
+    shape(J)
+    output = [Lap * u - Sib * q; J * u];
 end
 
 
@@ -152,14 +130,13 @@ function Sib = spreadQ(X, Y, xq, yq, delta)
     for k = 1:Nq
         Rk = sqrt((X - xq(k)).^2 + (Y - yq(k)).^2);
         x = reshape(delta(Rk),1,[]);
-        size(Sib(k,:))
         Sib(k,:) = x.' ;  % Reshape into a column
     end
     Sib = Sib.';  % Transpose the result
 end
 
 % Define the function for interpolating Phi values based on delta
-function Jphi = interpPhi(X, Y, xq, yq, Phi, delta)
+function Jphi = interpPhi(X, Y, xq, yq, delta)
     Nq = length(xq);
     Jphi = zeros(size(xq));
     dx = X(1, 2) - X(1, 1);
@@ -167,7 +144,9 @@ function Jphi = interpPhi(X, Y, xq, yq, Phi, delta)
     
     for k = 1:Nq
         Rk = sqrt((X - xq(k)).^2 + (Y - yq(k)).^2);
-        Jphi(k) = dx * dy * sum(sum(Phi .* delta(Rk)));
+        %Jphi(k) = dx * dy * sum(sum(Phi .* delta(Rk)));
+        temp = reshape(delta(Rk),[],1);
+        Jphi(k) = dx * dy * temp;
     end
 end
 

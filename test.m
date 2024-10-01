@@ -26,11 +26,11 @@ function [x_vals, y_vals, u_vals, v_vals] = solve_linear_poisson(N)
         j = floor((n-1) / N) + 1;  % Column index
         
         % Compute f at each grid point
-        f(n) = -8 * sin(2 * xx(j)) * cos(2 * xx(i));
+        f(n) = -8 * sin(2 * xx(i)) * cos(2 * xx(j));
         
         % Store x and y coordinates
-        x_list(end+1) = (i - 1) * dx;
-        y_list(end+1) = (j - 1) * dy;
+        x_list(end+1) = (j - 1) * dx;
+        y_list(end+1) = (i - 1) * dy;
         
         % Apply boundary conditions
         if i == 1 || i == N || j == 1 || j == N
@@ -38,7 +38,7 @@ function [x_vals, y_vals, u_vals, v_vals] = solve_linear_poisson(N)
             data(end+1) = 1;
             row_ind(end+1) = n;
             col_ind(end+1) = n;
-            f(n) = u_exact(xx(i), xx(j));  % Set boundary value to exact solution
+            f(n) = u_exact(xx(j), xx(i));  % Set boundary value to exact solution
         else
             % Interior points: 5-point stencil for Laplacian
             neighbors = [-1, 0, 1, 0, 0];

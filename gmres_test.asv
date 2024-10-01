@@ -1,10 +1,12 @@
 % Constructing Gaussian Matrix
+clear all;
 
+N = 100;
+m = 10;
 theta = linspace(0, 2*pi, 10);
 theta(end) = [];  % Exclude the last element
 xib = pi * cos(theta);  % Gaussian x-coordinate points
 yib = pi * sin(theta);  % Gaussian y-coordinate points
-N = 100;
 xx = linspace(0, 2*pi, N);
 yy = linspace(0, 2*pi, N);
 
@@ -63,26 +65,26 @@ f(boundary_indices) = sin(2.*yvals(boundary_indices)).*cos(2.*xvals(boundary_ind
 %}
 
 [A, f] = solve_linear_poisson(N);
+size(A)
+size(f)
+u_n = A \ f;
 f = [f;p2];
 u = [u; zeros(length(xib), 1)];
 
-% gmres function to solve the system
+% gmre
+% ?""?s function to solve the system
 [solution, flag] = gmres(@(v) gmres_helper(v, X, Y, xib, yib, @delta, A), f, [], 1e-6, 100);
 
-%disp('Solution:');
-%disp(solution);
-%disp('Flag:');
-%disp(flag);
 
 
-U = solution(1:end-length(xib));
+u = solution(1:end-length(xib));
 k = solution(end-length(xib)+1:end);
 
 
-shp = sqrt(length(U));
-U = resize(U,[shp,shp]);
-X = resize(X,[shp,shp]);
-Y = resize(Y,[shp,shp]);
+shp = sqrt(length(u));
+U = reshape(u,shp,shp);
+X = reshape(X,shp,shp);
+Y = reshape(Y,shp,shp);
 V = cos(2*X).*sin(2*Y);
 
 [x_new, y_new] = meshgrid(0:0.1:2*pi, 0:0.1:2*pi); % New smaller grid size
@@ -102,15 +104,15 @@ title("Numerical Solution to Poisson's Equation Where u(x,y) = sin(x)cos(y)");
 colorbar;
 % Set the view angle for better visualization
 view(45, 30); % Adjust azimuth and elevation for a better view
-[x_new, y_new] = meshgrid(0:0.1:5, 0:0.1:5); % New smaller grid size
+[x_new, y_new] = meshgrid(0:0.1:2*pi, 0:0.1:2*pi); % New smaller grid size
 % Interpolate data onto the new grid
 
-
-z_new = interp2(X, Y, V, x_new, y_new, 'linear'); % 'linear' interpolation
+v_new = sin(2*y_new).*cos(2*x_new);
+%v_new = interp2(X, Y, V, x_new, y_new, 'linear'); % 'linear' interpolation
 % Display the loaded variables
 % Create a 3D surface plot
 figure; % Open a new figure window
-surf(x_new, y_new, z_new); % Create a 3D surface plot
+surf(x_new, y_new, v_new); % Create a 3D surface plot
 % Set axis labels
 xlabel('X');
 ylabel('Y');
@@ -129,17 +131,17 @@ view(45, 30); % Adjust azimuth and elevation for a better view
 % gmres_helper function
 function output = gmres_helper(v,X,Y,xib,yib,delta,Lap)
 
-    %Sib = spreadQ(X, Y, xib, yib, delta);
-    %lq = length(xib);
-    %q = v(end-lq+1:end);
-    %u = v(1:end-lq);
+    Sib = spreadQ(X, Y, xib, yib, delta);
+    lq = length(xib);
+    q = v(end-lq+1:end);
+    u = v(1:end-lq);
 
-    %dx = X(1, 2) - X(1, 1);
-    %dy = Y(2, 1) - Y(1, 1);
-    %J = dx * dy * ones(lq, numel(X));
-    %tempJ = J * u.*0;
-    %output = [Lap * u - Sib * q; tempJ];
-    output = Lap * u
+    dx = X(1, 2) - X(1, 1);
+    dy = Y(2, 1) - Y(1, 1);
+    J = dx * dy * ones(lq, numel(X));
+    tempJ = J * u.*0;
+    output = [Lap * u - Sib * q; tempJ];
+    %output = [Lap * u;tempJ];
 end
 
 
@@ -209,11 +211,11 @@ function [A,f] = solve_linear_poisson(N)
         j = floor((n-1) / N) + 1;  % Column index
         
         % Compute f at each grid point
-        f(n) = -8 * sin(2 * xx(j)) * cos(2 * xx(i));
+        f(n) = -8 * sin(2 * xx(i)) * cos(2 * xx(j));
         
         % Store x and y coordinates
-        x_list(end+1) = (i - 1) * dx;
-        y_list(end+1) = (j - 1) * dy;
+        x_list(end+1) = (j - 1) * dx;
+        y_list(end+1) = (i - 1) * dy;
         
         % Apply boundary conditions
         if i == 1 || i == N || j == 1 || j == N
@@ -221,7 +223,7 @@ function [A,f] = solve_linear_poisson(N)
             data(end+1) = 1;
             row_ind(end+1) = n;
             col_ind(end+1) = n;
-            f(n) = u_exact(xx(i), xx(j));  % Set boundary value to exact solution
+            f(n) = u_exact(xx(j), xx(i));  % Set boundary value to exact solution
         else
             % Interior points: 5-point stencil for Laplacian
             neighbors = [-1, 0, 1, 0, 0];
