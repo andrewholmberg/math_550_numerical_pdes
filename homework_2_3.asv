@@ -1,6 +1,8 @@
 % Constructing Gaussian Matrix
 clear all;
-
+u =@(x,y) cos(2.*x).*sin(2.*y);
+f =@(x,y) -8*cos(2.*x).*sin(2.*y);
+f_ib =@(x,y) cos(2.*x).*sin(2.*y);
 N = 100;
 m = 10;
 theta = linspace(0, 2*pi, m+1);
@@ -9,13 +11,30 @@ xib = pi * cos(theta);  % Gaussian x-coordinate points
 yib = pi * sin(theta);  % Gaussian y-coordinate points
 xx = linspace(0, 2*pi, N);
 yy = linspace(0, 2*pi, N);
-
+xx_inner = xx(2:end-1);
+yy_inner = xx_inner
 dx = xx(2) - xx(1);
+h = dx;
+[X,Y] = meshgrid(xx_inner,yy_inner);
+[X_f,Y_f] = meshgrid(xx,yy);
+u_exact = u(X_f,Y_f);
 
-[X, Y] = meshgrid(xx, yy);  % Create a 2D grid
-xvals = X(:);
-yvals = Y(:);
-[Xint, Yint] = meshgrid(xx(2:end-1), yy(2:end-1));  % Interior points grid
+fmat = f(X,Y);
+size(u_exact(1,2:end-1))
+fmat(1,:) = fmat(1,:) - (1/h^2)*u_exact(1,2:end-1);
+fmat(end,:) = fmat(end,:) - (1/h^2)*u_exact(end,2:end-1);
+fmat(:,1) = fmat(:,1) - (1/h^2)*u_exact(2:end-1,1);
+fmat(:,end) = fmat(:,end) - (1/h^2)*u_exact(2:end-1,end);
+
+fmat_ib = f_ib(xib,yib); % vector of immersed boundary conditions for fvector
+
+% delta function approx wt gaussian
+delta_a = @(r,a) (1/(2*pi*a^2))*exp(-0.5*(r./a).^2); 
+delta = @(r) delta_a(r,1.2*h);
+
+% Reshape f matrixes to vector
+% fvect = [reshape(fmat,(N-2)^2,1); reshape(fmat_ib,(N_ib),1)];
+fvect = [reshape(fmat,[],1); fmat_ib'];
 
 % Define the function to spread values from the grid based on a delta
 
@@ -29,8 +48,6 @@ I_n = speye(N);
 % Define the 2D Laplacian using Kronecker products
 Lap = kron(I_n, D2) + kron(D2, I_n);
 
-% LU decomposition (MATLAB's equivalent of scipy.sparse.linalg.splu)
-dLap = decomposition(Lap, 'lu');
 
 
 % Concatenation of vector for u and f
@@ -102,49 +119,22 @@ colorbar;
 view(45, 30); % Adjust azimuth and elevation for a better view
 
 
-%}
 
 
-% gmres_helper function
-%{
-function output = gmres_helper(v,X,Y,xib,yib,delta,Lap)
-    lq = length(xib)
-    q = v(end-lq+1:end);
-    u = v(1:end-lq);
-    Q = spreadQ(X, Y, xib, yib, q, delta);
-    1
+function A = gmres_helper(v,X,Y,xib,yib,delta,Lap)
     N = length(X)
-    Phi = reshape(Lap\Q(:),N,N);
-    Phi_ib = interpPhi(X,Y,xib,yib,Phi,delta);
-    [Phi_ib]
+    vec_len = (N-2)^2 + N_ib;
+    u_len = (N-2)^2;
 
-    dx = X(1, 2) - X(1, 1);
-    dy = Y(2, 1) - Y(1, 1);
-    %J = dx * dy * ones(lq, numel(X));
-    output = v;
-end
+    % apply functions to u
+    Ax(1:u_len) = D_lap*x(1:u_len);
+    Ax(u_len+1:vec_len) = interpPhi(X,Y,xib,yib,x(1:u_len),delta,h); %J(x(1:N-2)),  J(u)
 
-%}
-
-function output = gmres_helper(v,X,Y,xib,yib,delta,Lap)
-    lq = length(xib);
-    q = v(end-lq+1:end);
-    u = v(1:end-lq);
-    S = spreadQ(X, Y, xib, yib, q, delta);
-
+    % apply functions to q
+    % test = spreadQ(X,Y,xib,yib,N_ib,x(u_len+1:vec_len),delta) ;
+    Ax(1:u_len) =  Ax(1:u_len) - (spreadQ(X,Y,xib,yib,x(u_len+1:vec_len),delta))' ; %Ax(1:N-2) - S(x(N-1:vec_len)); -S(q)
     
-    r_1 = Lap * u;
-    r_2 = reshape(S',[],1);
-    size(r_1)
-    size(r_2)
-    N = length(X);
-    Phi = reshape(u,N,N)';
-    size(Phi)
-    Phi_ib = interpPhi(X,Y,xib,yib,Phi,delta);
-    Phi_ib = reshape(Phi_ib',[],1);
-    size(Phi_ib)
-    %J = dx * dy * ones(lq, numel(X));
-    output = [r_1-r_2;Phi_ib];
+    A = Ax';
 
 end
 
@@ -169,6 +159,7 @@ function [Jphi] = interpPhi(X,Y,xq,yq,Phi,delta)
     end
 end
 
+%{
 % Define the Gaussian function delta
 function delta_val = delta_a(r, a)
     delta_val = (1 / (2 * pi * a^2)) * exp(-0.5 * (r / a).^2);
@@ -179,7 +170,7 @@ function delta_val = delta(r)
     delta_val = delta_a(r, 1.2 * dx);
 end
 
-
+%}
 
 
 

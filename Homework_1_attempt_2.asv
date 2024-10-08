@@ -2,8 +2,8 @@
 clear all;
 
 N = 100;
-m = 6;
-theta = linspace(0, 2*pi, m);
+m = 1;
+theta = linspace(0, 2*pi, m+1);
 theta(end) = [];  % Exclude the last element
 xib = pi * cos(theta);  % Gaussian x-coordinate points
 yib = pi * sin(theta);  % Gaussian y-coordinate points
@@ -33,26 +33,24 @@ Lap = kron(I_n, D2) + kron(D2, I_n);
 dLap = decomposition(Lap, 'lu');
 
 
-
 % Concatenation of vector for u and f
 u = [reshape(cos(2*X) .* sin(2*Y), [], 1); zeros(length(xib), 1)];
 p1 = -8 * sin(2.*Y) .* cos(2.*X);
 p1 = p1(:);
-p2 = cos(2 * xib) .* sin(2 * yib);
+p2 = cos(2 .* xib) .* sin(2 .* yib);
 p2 = p2(:);
+
 f = [p1; p2];
 % Initialize the right-hand side (RHS) vector f (source term)
 
 [A, f] = solve_linear_poisson(N);
-size(A)
-size(f)
 u_n = A \ f;
 f = [f;p2];
 u = [u; zeros(length(xib), 1)];
 
 % gmre
 % ?""?s function to solve the system
-[solution, flag] = gmres(@(v) gmres_helper(v, X, Y, xib, yib, @delta, A), f, [], 1e-6, 100);
+[solution, flag] = gmres(@(v) gmres_helper(v, X, Y, xib, yib, @delta, A), f, [], 1e-6, 1000);
 
 
 
@@ -108,22 +106,66 @@ view(45, 30); % Adjust azimuth and elevation for a better view
 
 
 % gmres_helper function
+%{
 function output = gmres_helper(v,X,Y,xib,yib,delta,Lap)
+    lq = length(xib)
     q = v(end-lq+1:end);
     u = v(1:end-lq);
-    Sib = spreadQ(X, Y, xib, yib, q, delta);
-    Phi = reshape(dLap\q(:),N,N);
-    Phi_ib = interpPhi(Xint,Yint,xib,yib,Phi,delta);
-    lq = length(xib);
+    Q = spreadQ(X, Y, xib, yib, q, delta);
+    1
+    N = length(X)
+    Phi = reshape(Lap\Q(:),N,N);
+    Phi_ib = interpPhi(X,Y,xib,yib,Phi,delta);
+    [Phi_ib]
 
     dx = X(1, 2) - X(1, 1);
     dy = Y(2, 1) - Y(1, 1);
     %J = dx * dy * ones(lq, numel(X));
-    J = interpPhi(X,Y,xib,yib,delta);
-    shape(J)
-    output = [Lap * u - Sib * q; J * u];
+    output = v;
 end
 
+%}
+
+function output = gmres_helper(v,X,Y,xib,yib,delta,Lap)
+    lq = length(xib);
+    q = v(end-lq+1:end);
+    u = v(1:end-lq);
+    S = spreadQ(X, Y, xib, yib, q, delta);
+
+    
+    r_1 = Lap * u;
+    r_2 = reshape(S',[],1);
+    size(r_1)
+    size(r_2)
+    N = length(X);
+    Phi = reshape(u,N,N)';
+    size(Phi)
+    Phi_ib = interpPhi(X,Y,xib,yib,Phi,delta);
+    Phi_ib = reshape(Phi_ib',[],1);
+    size(Phi_ib)
+    %J = dx * dy * ones(lq, numel(X));
+    output = [r_1-r_2;Phi_ib];
+
+    u_len = N*N;
+    vec_len = length(v);
+    D_lap = Lap;
+    Ax(1:u_len) = D_lap*v(1:u_len);
+    
+    Ax(u_len+1:vec_len) = interpPhi(X,Y,xib,yib,v(1:u_len),delta); %J(x(1:N-2)),  J(u)
+       
+    % apply functions to q
+    % test = spreadQ(X,Y,xib,yib,N_ib,x(u_len+1:vec_len),delta) ;
+    size(reshape(spreadQ(X,Y,xib,yib,v(u_len+1:vec_len),delta)',[],1))
+    size(Ax(1:u_len))
+    Ax(1:u_len) =  Ax(1:u_len) - reshape(spreadQ(X,Y,xib,yib,v(u_len+1:vec_len),delta)',[],1)' ; %Ax(1:N-2) - S(x(N-1:vec_len)); -S(q)
+    
+    A = Ax';
+    output = Ax';
+
+
+
+
+end
 
 function [Sq] = spreadQ(X,Y,xq,yq,q,delta)
     Sq = 0*X;
