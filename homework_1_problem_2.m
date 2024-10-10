@@ -4,8 +4,93 @@ u =@(x,y) cos(2.*x).*sin(2.*y);
 f =@(x,y) -8*cos(2.*x).*sin(2.*y);
 f_ib =@(x,y) cos(2.*x).*sin(2.*y);
 
+
+N = floor(2.^(6:.1:8));
+N = [15,20,25, 35,45,50,63,70,85,93,100,120,140,175,200,250,300];
+error_dx = [];
+error_combined = [];
+for m = N
+    n = 100;
+    [solution,Xdom_vect,Ydom_vect] = run_model(n,m);
+    u_solution = solution(1:end-m);
+    u_exact_compare = u(Xdom_vect,Ydom_vect);
+    sum((u_solution - u_exact_compare).^2)/sum(u_exact_compare.^2)
+    error_dx = [error_dx;sqrt(sum((u_solution - u_exact_compare).^2)/sum(u_exact_compare.^2))];
+    %{
+    m = 100
+    [solution,Xdom_vect,Ydom_vect] = run_model(n,m);
+    u_solution = solution(1:end-m);
+    u_exact_compare = u(Xdom_vect,Ydom_vect);
+    sum((u_solution - u_exact_compare).^2)/sum(u_exact_compare.^2)
+    error_combined = [error_combined;sqrt(sum((u_solution - u_exact_compare).^2)/sum(u_exact_compare.^2))];
+    %}
+end
+error_combined = error_dx
+N = N';
+t = table(N,error_dx,error_combined);
+writetable(t,'homework_1_problem_2_error.csv')
+
+
+u_solution = solution(1:end-m);
+u_exact_compare = u(Xdom_vect,Ydom_vect);
+sum((u_solution - u_exact_compare).^2)/sum(u_exact_compare.^2)
+k = solution(end-length(xib)+1:end);
+
+shp = sqrt(length(u_solution));
+U = reshape(u_solution,shp,shp);
+U = [u_exact(1,2:end-1); U; u_exact(end,2:end-1)];
+U = [u_exact(:,1) U u_exact(:,end)];
+X = reshape(Xdom_full,shp+2,shp+2);
+Y = reshape(Ydom_full,shp+2,shp+2);
+V = cos(2*X).*sin(2*Y);
+uib = u(xib,yib);
+[x_new, y_new] = meshgrid(0:0.1:2*pi, 0:0.1:2*pi); % New smaller grid size
+% Interpolate data onto the new grid
+z_new = interp2(X, Y, U, x_new, y_new, 'linear'); % 'linear' interpolation
+% Display the loaded variables
+% Create a 3D surface plot
+figure; % Open a new figure window
+plot3(xib,yib,uib,'ko','MarkerSize',6,'MarkerFaceColor', 'black')
+hold on
+%colormap('gray')
+surf(x_new, y_new, z_new); % Create a 3D surface plot
+
+grid on;
+% Set axis labels
+xlabel('X');
+ylabel('Y');
+zlabel('U');
+% Add a title to the plot
+title("Numerical Solution to Poisson's Equation Where u(x,y) = sin(x)cos(y)");
+% Add a colorbar for reference
+colorbar;
+% Set the view angle for better visualization
+view(45, 30); % Adjust azimuth and elevation for a better view
+[x_new, y_new] = meshgrid(0:0.1:2*pi, 0:0.1:2*pi); % New smaller grid size
+% Interpolate data onto the new grid
+
+v_new = sin(2*y_new).*cos(2*x_new);
+%v_new = interp2(X, Y, V, x_new, y_new, 'linear'); % 'linear' interpolation
+% Display the loaded variables
+% Create a 3D surface plot
+figure; % Open a new figure window
+surf(x_new, y_new, v_new); % Create a 3D surface plot
+% Set axis labels
+xlabel('X');
+ylabel('Y');
+zlabel('U');
+% Add a title to the plot
+title("Analytical Solution to Poisson's Equation Where u(x,y) = sin(x)cos(y)");
+% Add a colorbar for reference
+colorbar;
+% Set the view angle for better visualization
+view(45, 30); % Adjust azimuth and elevation for a better view
+
+function [solution,Xdom_vect,Ydom_vect] = run_model(N,m)
 % params
-N = 102;
+u =@(x,y) cos(2.*x).*sin(2.*y);
+f =@(x,y) -8*cos(2.*x).*sin(2.*y);
+f_ib =@(x,y) cos(2.*x).*sin(2.*y);
 tol = 10^-6;%(-1.5); % tolerance for gmres
 
 % make grid domain
@@ -28,7 +113,8 @@ fmat(:,end) = fmat(:,end) - (1/h^2)*u_exact(2:end-1,end);
 
 % make IB domain
 % N_ib = 100;
-theta_all = 0:h:2*pi;%linspace(0,2*pi,N_ib); % careful, makes 1 pt overlap
+%theta_all = 0:h:2*pi;%linspace(0,2*pi,N_ib); % careful, makes 1 pt overlap
+theta_all = linspace(0,2*pi,m+1);
 theta = theta_all(1:end-1); % avoids overlap of theta=0,2pi
 N_ib = length(theta);
 xib = pi + cos(theta);
@@ -63,59 +149,16 @@ Ydom_vect = reshape(Ydom,(N-2)^2,1);
 % test_fun = afun_N(uu,N,N_ib,Xdom_vect,Ydom_vect,xib,yib,delta,D_lap,h);
 
 helper = @(x)gmres_helper(x,N,N_ib,Xdom_vect,Ydom_vect,xib,yib,delta,D_lap,h);
+tic
 [solution, flag] = gmres(helper, fvect, [], tol, 1000); % solver
+toc
+end
 
 
-
-u = solution(1:end-length(xib));
-k = solution(end-length(xib)+1:end);
+%{
 
 
-shp = sqrt(length(u));
-U = reshape(u,shp,shp);
-X = reshape(Xdom,shp,shp);
-Y = reshape(Ydom,shp,shp);
-V = cos(2*X).*sin(2*Y);
-
-[x_new, y_new] = meshgrid(0:0.1:2*pi, 0:0.1:2*pi); % New smaller grid size
-% Interpolate data onto the new grid
-z_new = interp2(X, Y, U, x_new, y_new, 'linear'); % 'linear' interpolation
-% Display the loaded variables
-% Create a 3D surface plot
-figure; % Open a new figure window
-surf(x_new, y_new, z_new); % Create a 3D surface plot
-% Set axis labels
-xlabel('X');
-ylabel('Y');
-zlabel('U');
-% Add a title to the plot
-title("Numerical Solution to Poisson's Equation Where u(x,y) = sin(x)cos(y)");
-% Add a colorbar for reference
-colorbar;
-% Set the view angle for better visualization
-view(45, 30); % Adjust azimuth and elevation for a better view
-[x_new, y_new] = meshgrid(0:0.1:2*pi, 0:0.1:2*pi); % New smaller grid size
-% Interpolate data onto the new grid
-
-v_new = sin(2*y_new).*cos(2*x_new);
-%v_new = interp2(X, Y, V, x_new, y_new, 'linear'); % 'linear' interpolation
-% Display the loaded variables
-% Create a 3D surface plot
-figure; % Open a new figure window
-surf(x_new, y_new, v_new); % Create a 3D surface plot
-% Set axis labels
-xlabel('X');
-ylabel('Y');
-zlabel('U');
-% Add a title to the plot
-title("Analytical Solution to Poisson's Equation Where u(x,y) = sin(x)cos(y)");
-% Add a colorbar for reference
-colorbar;
-% Set the view angle for better visualization
-view(45, 30); % Adjust azimuth and elevation for a better view
-
-
-
+%}
 %% Functions
 % mat to solve system ***
 function [Sq] = spreadQ(X,Y,xib,yib,N_ib,q,delta)

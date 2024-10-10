@@ -1,6 +1,6 @@
 % Constructing Gaussian Matrix
 clear all;
-
+function [solution] = run_model(N,m)
 N = 100;
 m = 10;
 theta = linspace(0, 2*pi, m+1);
@@ -52,6 +52,8 @@ u = [u; zeros(length(xib), 1)];
 % ?""?s function to solve the system
 [solution, flag] = gmres(@(v) gmres_helper(v, X, Y, xib, yib, delta, A), f, [], 1e-6, 1000);
 
+
+end
 
 
 u = solution(1:end-length(xib));
